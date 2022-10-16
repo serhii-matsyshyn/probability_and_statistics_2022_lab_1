@@ -138,7 +138,6 @@ test_path <- "data/3-sentiment/test.csv"
 train_path <- "data/3-sentiment/train.csv"
 
 stop_words <- read_file("data/stop_words.txt")
-# https://stackoverflow.com/questions/27195912/why-does-strsplit-return-a-list
 splitted_stop_words <- strsplit(stop_words, split = "\n")
 splitted_stop_words <- splitted_stop_words[[1]]
 ```
@@ -154,30 +153,6 @@ tidy_text <- unnest_tokens(train, "splitted", "text", token = "words") %>%
     filter(!splitted %in% splitted_stop_words)
 ```
 
-# ```{r}
-# final <- tidy_text %>% count(splitted, sentiment, sort = TRUE)
-
-# final %>% head(100)
-
-# # count total number of words in each class
-# total <- final %>%
-#     group_by(sentiment) %>%
-#     summarise(total = sum(n))
-
-# # divide the number of words occurences in each class by the total
-# # number of words in each class
-# final <- final %>%
-#     left_join(total, by = "sentiment") %>%
-#     mutate(prob = n / total)
-
-# final %>% head(100)
-
-# # calculate the probability of each class
-# sum_total <- total$total %>% sum()
-# class_prob <- total$total / sum_total
-# class_prob
-# ```
-
 ### Data visualization
 
 Each time you work with some data, you need to understand it before you
@@ -185,7 +160,7 @@ start processing it. R has very powerful tools to make nice plots and
 visualization. Show what are the most common words for negative and
 positive examples as a histogram, word cloud etc. Be creative!
 
-# TODO: add some plots to visualize the data
+#### TODO: add some plots to visualize the data
 
 ## Classifier implementation
 
@@ -208,7 +183,7 @@ naiveBayes <- setRefClass("naiveBayes",
             # and corresponding label for the message encoded as 0 or 1
 
             # count the number of words occurences in each class separately
-            final <- tidy_text %>% count(splitted, sentiment, sort = TRUE)
+            final <- X %>% count(splitted, sentiment, sort = TRUE)
 
             # count total number of words in each class
             total <- final %>%
@@ -221,13 +196,22 @@ naiveBayes <- setRefClass("naiveBayes",
                 left_join(total, by = "sentiment") %>%
                 mutate(prob = n / total)
 
-            # calculate the probability of each class
+            # calculate the probability of each class and add as new column to Total
             sum_total <- total$total %>% sum()
+            class_prob <- total$total / sum_total
+            total <- cbind(total, class_prob)
+
+            # make sentiment column the rownames
+            rownames(total) <- total$sentiment
+
+            print(total)
 
             # store the results in the object
             g_class_prob <<- class_prob
             g_total <<- total
             g_final <<- final
+
+            # print(g_final %>% head(1000))
         },
 
         # return prediction for a single message
@@ -239,25 +223,20 @@ naiveBayes <- setRefClass("naiveBayes",
             # remove stop words
             splitted_message <- splitted_message[!splitted_message %in% splitted_stop_words]
 
-            # print to console
-            # splitted_message
-
-            # g_class_prob
-
-            prediction_class_0 <- g_class_prob[1] + sum(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "positive", "prob"])
-            prediction_class_1 <- g_class_prob[2] + sum(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "negative", "prob"])
-            prediction_class_2 <- g_class_prob[3] + sum(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "neutral", "prob"])
-
+            prediction_class_negative <- g_total[["negative", "class_prob"]] * prod(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "negative", "prob"])
+            prediction_class_positive <- g_total[["positive", "class_prob"]] * prod(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "positive", "prob"])
+            prediction_class_neutral <- g_total[["neutral", "class_prob"]] * prod(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "neutral", "prob"])
             # # print to console
-            # prediction_class_0
-            # prediction_class_1
-            # prediction_class_2
+            # print(prediction_class_negative)
+            # print(prediction_class_positive)
+            # print(prediction_class_neutral)
+
 
             # find the class with the highest probability
-            if (prediction_class_0 > prediction_class_1 && prediction_class_0 > prediction_class_2) {
-                return("positive")
-            } else if (prediction_class_1 > prediction_class_0 && prediction_class_1 > prediction_class_2) {
+            if (prediction_class_negative > prediction_class_positive && prediction_class_negative > prediction_class_neutral) {
                 return("negative")
+            } else if (prediction_class_positive > prediction_class_negative && prediction_class_positive > prediction_class_neutral) {
+                return("positive")
             } else {
                 return("neutral")
             }
@@ -270,14 +249,31 @@ naiveBayes <- setRefClass("naiveBayes",
         # visualize them
         # try how well your model generalizes to real world data!
         score = function(X_test, y_test) {
-            # TODO
+            # TODO: visualize the results and use f1 score to evaluate the model
+            success_count <- 0
+            fail_count <- 0
+
+            for (i in 1:nrow(X_test)) {
+                prediction <- predict(X_test[i, "text"])
+                if (prediction == y_test[i]) {
+                    success_count <- success_count + 1
+                } else {
+                    fail_count <- fail_count + 1
+                }
+            }
+
+            print(success_count)
+            print(fail_count)
+            print(success_count / (success_count + fail_count))
+
         }
     )
 )
 
 model <- naiveBayes()
-model$fit()
-model$predict("UPM-Kymmene said its has ` not indicated any interest in any domestic consolidations")
+model$fit(tidy_text, tidy_text$sentiment)
+model$predict("ok")
+model$score(test, test$sentiment)
 ```
 
 ## Measure effectiveness of your classifier
