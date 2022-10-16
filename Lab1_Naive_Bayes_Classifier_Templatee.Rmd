@@ -151,10 +151,32 @@ test <- read.csv(file = test_path, stringsAsFactors = FALSE)
 ```{r}
 # note the power functional features of R bring us!
 tidy_text <- unnest_tokens(train, "splitted", "text", token = "words") %>%
-    filter(!splitted %in% stop_words)
-
-tidy_text %>% count(splitted, sort = TRUE)
+    filter(!splitted %in% splitted_stop_words)
 ```
+
+# ```{r}
+# final <- tidy_text %>% count(splitted, sentiment, sort = TRUE)
+
+# final %>% head(100)
+
+# # count total number of words in each class
+# total <- final %>%
+#     group_by(sentiment) %>%
+#     summarise(total = sum(n))
+
+# # divide the number of words occurences in each class by the total
+# # number of words in each class
+# final <- final %>%
+#     left_join(total, by = "sentiment") %>%
+#     mutate(prob = n / total)
+
+# final %>% head(100)
+
+# # calculate the probability of each class
+# sum_total <- total$total %>% sum()
+# class_prob <- total$total / sum_total
+# class_prob
+# ```
 
 ### Data visualization
 
@@ -172,18 +194,74 @@ naiveBayes <- setRefClass("naiveBayes",
 
     # here it would be wise to have some vars to store intermediate result
     # frequency dict etc. Though pay attention to bag of wards!
-    fields = list(),
+    fields = list(
+        g_class_prob = "numeric",
+        g_total = "data.frame",
+        g_final = "data.frame"
+    ),
     methods = list(
         # prepare your training data as X - bag of words for each of your
         # messages and corresponding label for the message encoded as 0 or 1
         # (binary classification task)
         fit = function(X, y) {
-            # TODO
+            # create bag of words for each of your messages
+            # and corresponding label for the message encoded as 0 or 1
+
+            # count the number of words occurences in each class separately
+            final <- tidy_text %>% count(splitted, sentiment, sort = TRUE)
+
+            # count total number of words in each class
+            total <- final %>%
+                group_by(sentiment) %>%
+                summarise(total = sum(n))
+
+            # divide the number of words occurences in each class by the total
+            # number of words in each class
+            final <- final %>%
+                left_join(total, by = "sentiment") %>%
+                mutate(prob = n / total)
+
+            # calculate the probability of each class
+            sum_total <- total$total %>% sum()
+
+            # store the results in the object
+            g_class_prob <<- class_prob
+            g_total <<- total
+            g_final <<- final
         },
 
         # return prediction for a single message
         predict = function(message) {
-            # TODO
+            # split message into words
+            splitted_message <- strsplit(message, split = " ")
+            splitted_message <- splitted_message[[1]]
+
+            # remove stop words
+            splitted_message <- splitted_message[!splitted_message %in% splitted_stop_words]
+
+            # print to console
+            # splitted_message
+
+            # g_class_prob
+
+            prediction_class_0 <- g_class_prob[1] + sum(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "positive", "prob"])
+            prediction_class_1 <- g_class_prob[2] + sum(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "negative", "prob"])
+            prediction_class_2 <- g_class_prob[3] + sum(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "neutral", "prob"])
+
+            # # print to console
+            # prediction_class_0
+            # prediction_class_1
+            # prediction_class_2
+
+            # find the class with the highest probability
+            if (prediction_class_0 > prediction_class_1 && prediction_class_0 > prediction_class_2) {
+                return("positive")
+            } else if (prediction_class_1 > prediction_class_0 && prediction_class_1 > prediction_class_2) {
+                return("negative")
+            } else {
+                return("neutral")
+            }
+
         },
 
         # score you test set so to get the understanding how well you model
@@ -199,6 +277,7 @@ naiveBayes <- setRefClass("naiveBayes",
 
 model <- naiveBayes()
 model$fit()
+model$predict("UPM-Kymmene said its has ` not indicated any interest in any domestic consolidations")
 ```
 
 ## Measure effectiveness of your classifier
