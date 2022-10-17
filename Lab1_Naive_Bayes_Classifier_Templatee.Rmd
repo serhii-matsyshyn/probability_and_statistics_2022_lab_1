@@ -134,23 +134,80 @@ list.files("data/3-sentiment")
 ```
 
 ```{r}
-test_path <- "data/3-sentiment/test.csv"
-train_path <- "data/3-sentiment/train.csv"
+normal_dataset_full_path <- "data/3-sentiment/normal_dataset_full.csv"
+stop_words_path <- "data/stop_words.txt"
+```
 
-stop_words <- read_file("data/stop_words.txt")
+### The provided dataset is split into train and test datasets incorrectly
+The dataset is split incorrecltly because:
+- The data from test dataset is not connected to the data from train dataset in any way (by content and type of sentences)
+- It appears that this data was manually copied from a file, and the data was not pre-mixed.
+- The ratio of the number of sentiment sentences is not uniform and not similar to that obtained in the training file.
+** Poorly distributed data between the test and training datasets makes neural networks (and any other classifiers used in machine learning) useless **
+Therefore, we decided to mix the test and training dataset, and independently make a 70/30 distribution in the program (of course, according to the rules of working with datasets for machine learning - to shuffle the data and avoid the intersection of the test and training dataset, etc.)
+Thus, we will get the correct datasets that can be used in this work.
+
+```{r}
+# The bad dataset split! DO NOT USE IT!
+# test_path <- "data/3-sentiment/test.csv"
+# train_path <- "data/3-sentiment/train.csv"
+# train <- read.csv(file = train_path, stringsAsFactors = FALSE)
+# test <- read.csv(file = test_path, stringsAsFactors = FALSE)
+```
+
+```{r}
+# The good dataset split! USE IT!
+stop_words <- read_file(stop_words_path)
 splitted_stop_words <- strsplit(stop_words, split = "\n")
 splitted_stop_words <- splitted_stop_words[[1]]
+
+# Read the data from the file
+data <- read.csv(file = normal_dataset_full_path, stringsAsFactors = FALSE)
+# Shuffle the data
+
+set.seed(999) # make this split reproducible (for the same seed)
+shuffled_data <- data[sample(1:nrow(data)), ]
+
+# Split the data into train and test by 70/30
+sample <- sample(c(TRUE, FALSE), nrow(shuffled_data), replace = TRUE, prob = c(0.7, 0.3))
+train <- shuffled_data[sample, ]
+test <- shuffled_data[!sample, ]
 ```
 
 ```{r}
-train <- read.csv(file = train_path, stringsAsFactors = FALSE)
-test <- read.csv(file = test_path, stringsAsFactors = FALSE)
-```
-
-```{r}
-# note the power functional features of R bring us!
+# split sentences into words and remove stop words
 tidy_text <- unnest_tokens(train, "splitted", "text", token = "words") %>%
     filter(!splitted %in% splitted_stop_words)
+
+# print(tidy_text)
+
+# This is responsible for adding the missing values to the test set
+
+# for every unique word in the train set
+# add this word to each sentiment
+unique_words <- unique(tidy_text$splitted)
+
+# create dataframe with unique words and all 3 sentiments
+some_df <- data.frame(
+    splitted = rep(unique_words, 3),
+    sentiment = rep(c("positive", "negative", "neutral"),
+        each = length(unique_words)
+    )
+)
+
+# extend tidy_text by adding some_df
+tidy_text <- rbind(tidy_text, some_df)
+
+# count the number of sentiments messages in the train set
+sentiments_count <- train %>%
+    group_by(sentiment) %>%
+    summarise(count = n())
+
+# count the probabilities of each message in the train set
+sentiments_prob <- sentiments_count %>%
+    mutate(prob = count / sum(count))
+
+# print(sentiments_prob)
 ```
 
 ### Data visualization
@@ -170,6 +227,7 @@ naiveBayes <- setRefClass("naiveBayes",
     # here it would be wise to have some vars to store intermediate result
     # frequency dict etc. Though pay attention to bag of wards!
     fields = list(
+        g_sentiments_prob = "data.frame",
         g_class_prob = "numeric",
         g_total = "data.frame",
         g_final = "data.frame"
@@ -178,9 +236,12 @@ naiveBayes <- setRefClass("naiveBayes",
         # prepare your training data as X - bag of words for each of your
         # messages and corresponding label for the message encoded as 0 or 1
         # (binary classification task)
-        fit = function(X, y) {
+        fit = function(X, y, sentiments_prob) {
             # create bag of words for each of your messages
             # and corresponding label for the message encoded as 0 or 1
+
+            g_sentiments_prob <<- sentiments_prob
+            # print(g_sentiments_prob)
 
             # count the number of words occurences in each class separately
             final <- X %>% count(splitted, sentiment, sort = TRUE)
@@ -204,8 +265,6 @@ naiveBayes <- setRefClass("naiveBayes",
             # make sentiment column the rownames
             rownames(total) <- total$sentiment
 
-            print(total)
-
             # store the results in the object
             g_class_prob <<- class_prob
             g_total <<- total
@@ -223,24 +282,29 @@ naiveBayes <- setRefClass("naiveBayes",
             # remove stop words
             splitted_message <- splitted_message[!splitted_message %in% splitted_stop_words]
 
-            prediction_class_negative <- g_total[["negative", "class_prob"]] * prod(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "negative", "prob"])
-            prediction_class_positive <- g_total[["positive", "class_prob"]] * prod(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "positive", "prob"])
-            prediction_class_neutral <- g_total[["neutral", "class_prob"]] * prod(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "neutral", "prob"])
-            # # print to console
+            # Use sentiments_prob
+            g_sentiments_prob_negative_value <- g_sentiments_prob[g_sentiments_prob$sentiment == "negative", "prob"][[1]]
+            g_sentiments_prob_positive_value <- g_sentiments_prob[g_sentiments_prob$sentiment == "positive", "prob"][[1]]
+            g_sentiments_prob_neutral_value <- g_sentiments_prob[g_sentiments_prob$sentiment == "neutral", "prob"][[1]]
+
+            # print(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "negative", "prob"])
+
+            prediction_class_negative <- g_sentiments_prob_negative_value * prod(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "negative", "prob"])
+            prediction_class_positive <- g_sentiments_prob_positive_value * prod(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "positive", "prob"])
+            prediction_class_neutral <- g_sentiments_prob_neutral_value * prod(g_final[g_final$splitted %in% splitted_message & g_final$sentiment == "neutral", "prob"])
+
             # print(prediction_class_negative)
             # print(prediction_class_positive)
             # print(prediction_class_neutral)
 
-
             # find the class with the highest probability
             if (prediction_class_negative > prediction_class_positive && prediction_class_negative > prediction_class_neutral) {
                 return("negative")
-            } else if (prediction_class_positive > prediction_class_negative && prediction_class_positive > prediction_class_neutral) {
+            } else if (prediction_class_positive >= prediction_class_negative && prediction_class_positive >= prediction_class_neutral) {
                 return("positive")
             } else {
                 return("neutral")
             }
-
         },
 
         # score you test set so to get the understanding how well you model
@@ -258,6 +322,7 @@ naiveBayes <- setRefClass("naiveBayes",
                 if (prediction == y_test[i]) {
                     success_count <- success_count + 1
                 } else {
+                    # print(c(prediction, y_test[i]))
                     fail_count <- fail_count + 1
                 }
             }
@@ -265,14 +330,13 @@ naiveBayes <- setRefClass("naiveBayes",
             print(success_count)
             print(fail_count)
             print(success_count / (success_count + fail_count))
-
         }
     )
 )
 
 model <- naiveBayes()
-model$fit(tidy_text, tidy_text$sentiment)
-model$predict("ok")
+model$fit(tidy_text, tidy_text$sentiment, sentiments_prob)
+model$predict("s will company")
 model$score(test, test$sentiment)
 ```
 
