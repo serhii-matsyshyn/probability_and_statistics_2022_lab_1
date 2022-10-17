@@ -174,42 +174,6 @@ train <- shuffled_data[sample, ]
 test <- shuffled_data[!sample, ]
 ```
 
-```{r}
-# split sentences into words and remove stop words
-tidy_text <- unnest_tokens(train, "splitted", "text", token = "words") %>%
-    filter(!splitted %in% splitted_stop_words)
-
-# print(tidy_text)
-
-# This is responsible for adding the missing values to the test set
-
-# for every unique word in the train set
-# add this word to each sentiment
-unique_words <- unique(tidy_text$splitted)
-
-# create dataframe with unique words and all 3 sentiments
-some_df <- data.frame(
-    splitted = rep(unique_words, 3),
-    sentiment = rep(c("positive", "negative", "neutral"),
-        each = length(unique_words)
-    )
-)
-
-# extend tidy_text by adding some_df
-tidy_text <- rbind(tidy_text, some_df)
-
-# count the number of sentiments messages in the train set
-sentiments_count <- train %>%
-    group_by(sentiment) %>%
-    summarise(count = n())
-
-# count the probabilities of each message in the train set
-sentiments_prob <- sentiments_count %>%
-    mutate(prob = count / sum(count))
-
-# print(sentiments_prob)
-```
-
 ### Data visualization
 
 Each time you work with some data, you need to understand it before you
@@ -236,15 +200,51 @@ naiveBayes <- setRefClass("naiveBayes",
         # prepare your training data as X - bag of words for each of your
         # messages and corresponding label for the message encoded as 0 or 1
         # (binary classification task)
-        fit = function(X, y, sentiments_prob) {
+        fit = function(X, y, stop_words) {
             # create bag of words for each of your messages
             # and corresponding label for the message encoded as 0 or 1
+
+            # split sentences into words and remove stop words
+            tidy_text <- unnest_tokens(X, "splitted", "text", token = "words") %>%
+                filter(!splitted %in% stop_words)
+
+            # print(tidy_text)
+
+            # This is responsible for adding the missing values to the test set
+
+            # for every unique word in the train set
+            # add this word to each sentiment
+            unique_words <- unique(tidy_text$splitted)
+
+            # create dataframe with unique words and all 3 sentiments
+            some_df <- data.frame(
+                splitted = rep(unique_words, 3),
+                sentiment = rep(c("positive", "negative", "neutral"),
+                    each = length(unique_words)
+                )
+            )
+
+            # extend tidy_text by adding some_df
+            tidy_text <- rbind(tidy_text, some_df)
+
+            # count the number of sentiments messages in the train set
+            sentiments_count <- train %>%
+                group_by(sentiment) %>%
+                summarise(count = n())
+
+            # count the probabilities of each message in the train set
+            sentiments_prob <- sentiments_count %>%
+                mutate(prob = count / sum(count))
+
+            # print(sentiments_prob)
+
+
 
             g_sentiments_prob <<- sentiments_prob
             # print(g_sentiments_prob)
 
             # count the number of words occurences in each class separately
-            final <- X %>% count(splitted, sentiment, sort = TRUE)
+            final <- tidy_text %>% count(splitted, sentiment, sort = TRUE)
 
             # count total number of words in each class
             total <- final %>%
@@ -335,7 +335,7 @@ naiveBayes <- setRefClass("naiveBayes",
 )
 
 model <- naiveBayes()
-model$fit(tidy_text, tidy_text$sentiment, sentiments_prob)
+model$fit(train, train$sentiment, splitted_stop_words)
 model$predict("s will company")
 model$score(test, test$sentiment)
 ```
