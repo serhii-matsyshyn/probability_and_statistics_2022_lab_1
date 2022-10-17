@@ -200,32 +200,34 @@ naiveBayes <- setRefClass("naiveBayes",
         # prepare your training data as X - bag of words for each of your
         # messages and corresponding label for the message encoded as 0 or 1
         # (binary classification task)
+
+        # Pass X - the messages and Y - the labels (sentiments) to the fit method
         fit = function(X, y, stop_words) {
             # create bag of words for each of your messages
-            # and corresponding label for the message encoded as 0 or 1
+            # and corresponding label for the message (one of three sentiments)
 
             # split sentences into words and remove stop words
             tidy_text <- unnest_tokens(X, "splitted", "text", token = "words") %>%
                 filter(!splitted %in% stop_words)
-
             # print(tidy_text)
 
             # This is responsible for adding the missing values to the test set
+            # (so that every sentiment has at least one of each words)
 
-            # for every unique word in the train set
+            # For every unique word in the train set
             # add this word to each sentiment
             unique_words <- unique(tidy_text$splitted)
 
             # create dataframe with unique words and all 3 sentiments
-            some_df <- data.frame(
+            unique_words_sentiments_df <- data.frame(
                 splitted = rep(unique_words, 3),
                 sentiment = rep(c("positive", "negative", "neutral"),
                     each = length(unique_words)
                 )
             )
 
-            # extend tidy_text by adding some_df
-            tidy_text <- rbind(tidy_text, some_df)
+            # extend tidy_text by adding unique_words_sentiments_df
+            tidy_text <- rbind(tidy_text, unique_words_sentiments_df)
 
             # count the number of sentiments messages in the train set
             sentiments_count <- train %>%
@@ -238,10 +240,7 @@ naiveBayes <- setRefClass("naiveBayes",
 
             # print(sentiments_prob)
 
-
-
             g_sentiments_prob <<- sentiments_prob
-            # print(g_sentiments_prob)
 
             # count the number of words occurences in each class separately
             final <- tidy_text %>% count(splitted, sentiment, sort = TRUE)
