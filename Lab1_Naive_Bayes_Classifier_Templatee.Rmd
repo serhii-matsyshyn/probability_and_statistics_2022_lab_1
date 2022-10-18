@@ -406,16 +406,6 @@ print(success / (success + fail))
 
 ### F1 score
 ```{r}
-# F1 Score
-print("F1 Score:")
-print(" - For positive sentiment:")
-print(score_f1_result[1])
-print(" - For negative sentiment:")
-print(score_f1_result[2])
-print(" - For neutral sentiment:")
-print(score_f1_result[3])
-
-
 # Plot F1 Score using ggplot
 ggplot(
     data = data.frame(c("positive", "negative", "neutral"), score_f1_result),
@@ -461,7 +451,7 @@ In this task we had to determine which class each sentence belonged to.
 To do that, we found the probability of each class (number of sentences in the specific class/number of all sentences in data).  
 After that we found a probability of each word to appear and having those probabilities, we found the probability of each sentence.  
 Now, we should find to which class our sentence belongs.  
-Here we used product rule: we multiplied probability of class on probability of sentence, we consider.  
+Here we used product rule: we multiplied probability of class on probability of sentence.  
 We will have 3 probabilities (cause we have 3 classes) and we should choose the largest one, and that will be class, to which our sentence belongs.  
   
 To analyze the dataset, we created a bar plot with top 10 words and where they are repeated and the number of sentences in each class.  
