@@ -48,34 +48,17 @@ There are 5 datasets uploaded on the cms.
 To determine your variant, take your team number from the list of teams
 on cms and take *mod 5* - this is the number of your data set.
 
--   **0 - authors** This data set consists of citations of three famous
-    writers: Edgar Alan Poe, Mary Wollstonecraft Shelley and HP
-    Lovecraft. The task with this data set is to classify a piece of
-    text with the author who was more likely to write it.
-
--   **1 - discrimination** This data set consists of tweets that have
-    discriminatory (sexism or racism) messages or of tweets that are of
-    neutral mood. The task is to determine whether a given tweet has
-    discriminatory mood or does not.
-
--   **2 - fake news** This data set contains data of American news: a
-    headline and an abstract of the article. Each piece of news is
-    classified as fake or credible. The task is to classify the news
-    from test.csv as credible or fake.
-
 -   **3 - sentiment** All the text messages contained in this data set
     are labeled with three sentiments: positive, neutral or negative.
     The task is to classify some text message as the one of positive
     mood, negative or neutral.
 
--   **4 - spam** This last data set contains SMS messages classified as
-    spam or non-spam (ham in the data set). The task is to determine
-    whether a given message is spam or non-spam.
-
 Each data set consists of two files: *train.csv* and *test.csv*. The
 first one you will need find the probabilities distributions for each of
 the features, while the second one is needed for checking how well your
 classifier works.
+
+! The provided dataset is split into train and test datasets incorrectly (see information below).
 
 ```{r}
 # here goes a list of recommended libraries,
@@ -317,9 +300,9 @@ naiveBayes <- setRefClass("naiveBayes",
                 }
             }
 
-            print(success_count)
-            print(fail_count)
-            print(success_count / (success_count + fail_count))
+            # print(success_count)
+            # print(fail_count)
+            # print(success_count / (success_count + fail_count))
             return(c(success_count, fail_count))
         }
     )
@@ -327,11 +310,10 @@ naiveBayes <- setRefClass("naiveBayes",
 
 model <- naiveBayes()
 model$fit(train, train$sentiment, splitted_stop_words)
-model$predict("s will company")
 score_result <- model$score(test, test$sentiment)
 ```
 
-### Data visualization
+### Dataset visualization
 
 Each time you work with some data, you need to understand it before you
 start processing it. R has very powerful tools to make nice plots and
@@ -344,7 +326,7 @@ train %>%
     count(sentiment) %>%
     ggplot(aes(x = sentiment, y = n)) +
     geom_bar(stat = "identity", fill = "#9f9fff") +
-    labs(title = "Bar Plot of Sentiments", x = "Sentiment", y = "Count")
+    labs(title = "Bar Plot of Sentiments (positive, negative, neutral)", x = "Sentiment", y = "Count")
 ```
 
 ```{r}
@@ -352,7 +334,12 @@ model$g_final %>%
     head(10) %>%
     ggplot(aes(x = splitted, y = n, fill = sentiment)) +
     geom_bar(stat = "identity", position = "dodge") +
-    labs(title = "Top 10 words in each sentiment", x = "Word", y = "Count")
+    labs(title = "Top 10 words in all sentiments", x = "Word", y = "Count")
+```
+
+### Sample prediction
+```{r}
+model$predict("reduce a maximum of many jobs")
 ```
 
 ```{r}
@@ -366,20 +353,12 @@ score_result_df <- data.frame(
 success <- score_result_df[1, 2]
 fail <- score_result_df[2, 2]
 
-# ggplot
 ggplot(data = score_result_df, aes(x = score_result_df[, 1], y = score_result_df[, 2])) +
     geom_bar(stat = "identity", fill = "#9f9fff") +
     labs(title = "Success and Fail Count of testing the Classifier", x = "Result", y = "Count")
 
 print("Success rate:")
 print(success / (success + fail))
-```
-
-```{r}
-# PR curve calculate
-
-
-
 ```
 
 ## Measure effectiveness of your classifier
@@ -391,14 +370,15 @@ print(success / (success + fail))
 
 
 ## Conclusions
+In this task we had to determine which class each sentence belonged to.
 
-Summarize your work by explaining in a few sentences the points listed
-below.
+To do that, we found the probability of each class (number of sentences in the specific class/number of all sentences in data).
+After that we found a probability of each word to appear and having those probabilities, we found the probability of each sentence.
+Now, we should find to which class our sentence belongs.
+Here we used product rule: we multiplied probability of class on probability of sentence, we consider.
+We will have 3 probabilities (cause we have 3 classes) and we should choose the largest one, and that will be class, to which our sentence belongs.
 
--   Describe the method implemented in general. Show what are
-    mathematical foundations you are basing your solution on.
--   List pros and cons of the method. This should include the
-    limitations of your method, all the assumption you make about the
-    nature of your data etc.
+To analyze the dataset, we created a histogram with top 10 words and where they are repeated and the number of sentences in each class.
 
-# TODO: add some conclusions
+Using a Naive Bayes classifier is not very efficient because it does not take word order into account.
+Therefore, the maximum accuracy of the model was 71 percent.
