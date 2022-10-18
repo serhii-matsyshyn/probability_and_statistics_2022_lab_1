@@ -51,8 +51,9 @@ on cms and take *mod 5* - this is the number of your data set.
 -   **3 - sentiment** All the text messages contained in this data set
     are labeled with three sentiments: positive, neutral or negative.
     The task is to classify some text message as the one of positive
-    mood, negative or neutral.
-**! The provided dataset is split into train and test datasets incorrectly (see information below).**
+    mood, negative or neutral.  
+
+**! The provided dataset is split into train and test datasets incorrectly (see more information below).**
 
 ```{r}
 # here goes a list of recommended libraries,
@@ -430,6 +431,36 @@ ggplot(
     geom_bar(stat = "identity", fill = "#59f299") +
     labs(title = "F1 Score of each sentiment", x = "Sentiment", y = "F1 Score")
 ``` 
+
+### Failure cases
+```{r}
+# Show 10 random failure cases
+test_shuffled <- test[sample(nrow(test)), ]
+
+failed_cases <- data.frame(
+    text = character(),
+    sentiment = character(),
+    prediction = character()
+)
+
+for (i in 1:nrow(test_shuffled)) {
+    prediction <- model$predict(test_shuffled[i, "text"])
+    if (prediction != test_shuffled[i, "sentiment"]) {
+        failed_cases <- rbind(failed_cases, data.frame(
+            text = test_shuffled[i, "text"],
+            sentiment = test_shuffled[i, "sentiment"],
+            prediction = prediction
+        ))
+    }
+
+    if (nrow(failed_cases) == 10) {
+        break
+    }
+}
+
+print("10 random failure cases:")
+print(failed_cases)
+```
 
 ## Conclusions
 In this task we had to determine which class each sentence belonged to.  
