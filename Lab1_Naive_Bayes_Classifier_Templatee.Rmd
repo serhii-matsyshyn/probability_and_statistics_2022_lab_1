@@ -115,14 +115,14 @@ normal_dataset_full_path <- "data/3-sentiment/normal_dataset_full.csv"
 stop_words_path <- "data/stop_words.txt"
 ```
 
-### The provided dataset is split into train and test datasets incorrectly
-The dataset is split incorrecltly because:
-- The data from test dataset is not connected to the data from train dataset in any way (by content and type of sentences)
-- It appears that this data was manually copied from a file, and the data was not pre-mixed.
-- The ratio of the number of sentiment sentences is not uniform and not similar to that obtained in the training file.
-**Poorly distributed data between the test and training datasets makes neural networks (and any other classifiers used in machine learning) useless**
-Therefore, we decided to mix the test and training dataset, and independently make a 70/30 distribution in the program (of course, according to the rules of working with datasets for machine learning - to shuffle the data and avoid the intersection of the test and training dataset, etc.)
-Thus, we will get the correct datasets that can be used in this work.
+### The provided dataset is split into train and test datasets incorrectly  
+The dataset is split incorrecltly because:  
+- The data from test dataset is not connected to the data from train dataset in any way (by content and type of sentences)  
+- It appears that this data was manually copied from a file, and the data was not pre-mixed.  
+- The ratio of the number of sentiment sentences is not uniform and not similar to that obtained in the training file.  
+**Poorly distributed data between the test and training datasets makes neural networks (and any other classifiers used in machine learning) useless**  
+Therefore, we decided to mix the test and training dataset, and independently make a 70/30 distribution in the program (of course, according to the rules of working with datasets for machine learning - to shuffle the data and avoid the intersection of the test and training dataset, etc.)  
+Thus, we will get the correct datasets that can be used in this work.  
 
 ```{r}
 # The bad dataset split! DO NOT USE IT!
@@ -332,12 +332,20 @@ model$g_final %>%
     labs(title = "Top 10 words in all sentiments", x = "Word", y = "Count")
 ```
 
+## Measure effectiveness of your classifier
+
+-   Note that accuracy is not always a good metric for your classifier.
+    Look at precision and recall curves, F1 score metric.
+-   Visualize them.
+-   Show failure cases.
+
 ### Sample prediction
 ```{r}
 # Sample prediction
-model$predict("reduce a maximum of many jobs")
+model$predict("reduce a maximum of 1000 jobs")
 ```
 
+### Accuracy
 ```{r}
 # Plot success, fail and success rate
 score_result_df <- data.frame(
@@ -357,6 +365,7 @@ print("Success rate:")
 print(success / (success + fail))
 ```
 
+### F1 score
 ```{r}
 # F1 Score
 score_f1 <- function(X_test, y_test) {
@@ -365,7 +374,7 @@ score_f1 <- function(X_test, y_test) {
     fp <- c(0, 0, 0)
     fn <- c(0, 0, 0)
 
-    for(i in 1:nrow(X_test)) {
+    for (i in 1:nrow(X_test)) {
         prediction <- model$predict(X_test[i, "text"])
         if (prediction == y_test[i]) {
             if (prediction == "positive") {
@@ -398,7 +407,7 @@ score_f1 <- function(X_test, y_test) {
     negative_sentiment_f1 <- 2 * tp[2] / (2 * tp[2] + fp[2] + fn[2])
     neutral_sentiment_f1 <- 2 * tp[3] / (2 * tp[3] + fp[3] + fn[3])
 
-    return (c(positive_sentiment_f1, negative_sentiment_f1, neutral_sentiment_f1))
+    return(c(positive_sentiment_f1, negative_sentiment_f1, neutral_sentiment_f1))
 }
 
 score_f1_result <- score_f1(test, test$sentiment)
@@ -412,37 +421,30 @@ print(score_f1_result[2])
 print(" - For neutral sentiment:")
 print(score_f1_result[3])
 
-V1 <- c("positive", "negative", "neutral")
-V2 <- score_f1_result
 
 # Plot F1 Score using ggplot
-ggplot(data = data.frame(c("positive", "negative", "neutral"), score_f1_result), aes(x = V1, y = V2)) +
-    geom_bar(stat = "identity", fill = "#9f9fff") +
+ggplot(
+    data = data.frame(c("positive", "negative", "neutral"), score_f1_result),
+    aes(x = c("positive", "negative", "neutral"), y = score_f1_result)
+) +
+    geom_bar(stat = "identity", fill = "#59f299") +
     labs(title = "F1 Score of each sentiment", x = "Sentiment", y = "F1 Score")
 ``` 
 
-## Measure effectiveness of your classifier
-
--   Note that accuracy is not always a good metric for your classifier.
-    Look at precision and recall curves, F1 score metric.
--   Visualize them.
--   Show failure cases.
-
-
 ## Conclusions
-In this task we had to determine which class each sentence belonged to.
+In this task we had to determine which class each sentence belonged to.  
 
-To do that, we found the probability of each class (number of sentences in the specific class/number of all sentences in data).
-After that we found a probability of each word to appear and having those probabilities, we found the probability of each sentence.
-Now, we should find to which class our sentence belongs.
-Here we used product rule: we multiplied probability of class on probability of sentence, we consider.
-We will have 3 probabilities (cause we have 3 classes) and we should choose the largest one, and that will be class, to which our sentence belongs.
+To do that, we found the probability of each class (number of sentences in the specific class/number of all sentences in data).  
+After that we found a probability of each word to appear and having those probabilities, we found the probability of each sentence.  
+Now, we should find to which class our sentence belongs.  
+Here we used product rule: we multiplied probability of class on probability of sentence, we consider.  
+We will have 3 probabilities (cause we have 3 classes) and we should choose the largest one, and that will be class, to which our sentence belongs.  
+  
+To analyze the dataset, we created a bar plot with top 10 words and where they are repeated and the number of sentences in each class.  
+We figured out, that train and test datasets are not split correctly (see information at the top of the notebook), therefore we had to split them again normally.  
 
-To analyze the dataset, we created a bar plot with top 10 words and where they are repeated and the number of sentences in each class.
-We figured out, that train and test datasets are not split correctly (see information at the top of the notebook), therefore we had to split them again normally.
-
-Using a Naive Bayes classifier is not very efficient because it does not take word order into account.
-Therefore, the maximum accuracy of the model was 71 percent.
+Using a Naive Bayes classifier is not very efficient because it does not take word order into account.  
+Therefore, the maximum accuracy of the model was 71 percent.  
 
 F1 score shows that there is strong connection between sentiments and the amount of data from input dataset.
 That is, the basic rule of creating datasets is violated at the provided dataset: the amount of training data of all classes should be approximately the same.
