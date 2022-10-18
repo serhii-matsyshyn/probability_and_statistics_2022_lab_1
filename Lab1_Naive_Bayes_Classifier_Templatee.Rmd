@@ -174,15 +174,6 @@ train <- shuffled_data[sample, ]
 test <- shuffled_data[!sample, ]
 ```
 
-### Data visualization
-
-Each time you work with some data, you need to understand it before you
-start processing it. R has very powerful tools to make nice plots and
-visualization. Show what are the most common words for negative and
-positive examples as a histogram, word cloud etc. Be creative!
-
-#### TODO: add some plots to visualize the data
-
 ## Classifier implementation
 
 ```{r}
@@ -329,6 +320,7 @@ naiveBayes <- setRefClass("naiveBayes",
             print(success_count)
             print(fail_count)
             print(success_count / (success_count + fail_count))
+            return(c(success_count, fail_count))
         }
     )
 )
@@ -336,7 +328,58 @@ naiveBayes <- setRefClass("naiveBayes",
 model <- naiveBayes()
 model$fit(train, train$sentiment, splitted_stop_words)
 model$predict("s will company")
-model$score(test, test$sentiment)
+score_result <- model$score(test, test$sentiment)
+```
+
+### Data visualization
+
+Each time you work with some data, you need to understand it before you
+start processing it. R has very powerful tools to make nice plots and
+visualization. Show what are the most common words for negative and
+positive examples as a histogram, word cloud etc. Be creative!
+
+```{r}
+# Bar Plot all 3 sentiments (positive, negative, neutral)
+train %>%
+    count(sentiment) %>%
+    ggplot(aes(x = sentiment, y = n)) +
+    geom_bar(stat = "identity", fill = "#9f9fff") +
+    labs(title = "Bar Plot of Sentiments", x = "Sentiment", y = "Count")
+```
+
+```{r}
+model$g_final %>%
+    head(10) %>%
+    ggplot(aes(x = splitted, y = n, fill = sentiment)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    labs(title = "Top 10 words in each sentiment", x = "Word", y = "Count")
+```
+
+```{r}
+# Plot success, fail and success rate
+score_result_df <- data.frame(
+    c("success", "fail"),
+    score_result
+)
+
+# Plot success and fail count
+success <- score_result_df[1, 2]
+fail <- score_result_df[2, 2]
+
+# ggplot
+ggplot(data = score_result_df, aes(x = score_result_df[, 1], y = score_result_df[, 2])) +
+    geom_bar(stat = "identity", fill = "#9f9fff") +
+    labs(title = "Success and Fail Count of testing the Classifier", x = "Result", y = "Count")
+
+print("Success rate:")
+print(success / (success + fail))
+```
+
+```{r}
+# PR curve calculate
+
+
+
 ```
 
 ## Measure effectiveness of your classifier
@@ -345,6 +388,7 @@ model$score(test, test$sentiment)
     Look at precision and recall curves, F1 score metric.
 -   Visualize them.
 -   Show failure cases.
+
 
 ## Conclusions
 
